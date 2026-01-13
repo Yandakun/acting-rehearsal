@@ -19,15 +19,13 @@ export default function PlayScriptPage() {
     new Set(script.map((line) => line.character))
   ).filter((c) => c !== "지시문" && c !== "시스템");
 
-  // 챕터(Header) 목록 추출 (인덱스와 함께 저장)
+  // 챕터 목록
   const chapters = script
     .map((line, index) => ({ text: line.text, index, type: line.type }))
     .filter((item) => item.type === "header");
 
-  // 현재 재생 위치에 따른 챕터 찾기 (UI 동기화용)
   const getCurrentChapterIndex = () => {
     if (currentIndex === -1) return -1;
-    // 현재 인덱스보다 작거나 같은 것 중 가장 큰 인덱스(가장 최근 헤더)를 찾음
     const currentChapter = [...chapters]
       .reverse()
       .find((ch) => ch.index <= currentIndex);
@@ -68,6 +66,7 @@ export default function PlayScriptPage() {
     const line = script[index];
     window.speechSynthesis.cancel();
 
+    // 내 차례인지 확인
     const isMyTurn = line.character === myRole;
 
     const utterance = new SpeechSynthesisUtterance(line.text);
@@ -77,14 +76,21 @@ export default function PlayScriptPage() {
     }
 
     utterance.lang = "ko-KR";
-    utterance.volume = isMyTurn ? 0 : 1;
-
     const voiceSettings = characterVoices[line.character] || {
       pitch: 1.0,
       rate: 1.0,
     };
     utterance.pitch = voiceSettings.pitch;
-    utterance.rate = voiceSettings.rate * globalRate;
+
+    // ★ 수정된 부분: 내 대사일 때는 시간 2배 확보 (속도 0.5배) ★
+    if (isMyTurn) {
+      utterance.volume = 0; // 소리 끔
+      // 원래 속도의 절반으로 재생 -> 시간이 2배 걸림 (연습 시간 확보)
+      utterance.rate = voiceSettings.rate * globalRate * 0.5;
+    } else {
+      utterance.volume = 1; // 소리 켬
+      utterance.rate = voiceSettings.rate * globalRate;
+    }
 
     utterance.onend = () => {
       speakingRef.current = false;
@@ -125,7 +131,7 @@ export default function PlayScriptPage() {
     const newIndex = Number(e.target.value);
     if (newIndex !== -1) {
       setCurrentIndex(newIndex);
-      setIsPlaying(true); // 챕터 선택 시 바로 재생
+      setIsPlaying(true);
     }
   };
 
@@ -168,7 +174,7 @@ export default function PlayScriptPage() {
             </div>
           </div>
 
-          {/* 2열: 챕터 선택 드롭다운 (NEW!) */}
+          {/* 2열: 챕터 선택 드롭다운 */}
           <div className="w-full">
             <select
               value={getCurrentChapterIndex()}
