@@ -13,17 +13,15 @@ export default function PlayScriptPage() {
 
   const currentLineRef = useRef<HTMLDivElement>(null);
 
-  // ★ 중요: 현재 말하고 있는 인덱스 추적 (인덱스 점프 방지용)
   const activeIndexRef = useRef<number>(-1);
-  // ★ 중요: 가비지 컬렉션 방지용 (오디오 객체 보호)
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  // ★ 추가: iOS 멈춤 방지용 타이머
+  const safetyTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 캐릭터 목록 추출
   const characters = Array.from(
     new Set(script.map((line) => line.character))
   ).filter((c) => c !== "지시문" && c !== "시스템");
 
-  // 전체 챕터 목록
   const allChapters = useMemo(
     () =>
       script
@@ -32,7 +30,6 @@ export default function PlayScriptPage() {
     []
   );
 
-  // 배역별 챕터 필터링
   const filteredChapters = useMemo(() => {
     if (!myRole) return allChapters;
     return allChapters.filter((chapter, i) => {
@@ -53,7 +50,6 @@ export default function PlayScriptPage() {
     return currentChapter ? currentChapter.index : -1;
   };
 
-  // 목소리 로딩
   useEffect(() => {
     const loadVoices = () => {
       const voices = window.speechSynthesis.getVoices();
@@ -66,8 +62,10 @@ export default function PlayScriptPage() {
     ) {
       window.speechSynthesis.onvoiceschanged = loadVoices;
     }
-    // 페이지 나갈 때 종료
-    return () => window.speechSynthesis.cancel();
+    return () => {
+      window.speechSynthesis.cancel();
+      if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
+    };
   }, []);
 
   const getBestVoice = () => {
@@ -84,7 +82,8 @@ export default function PlayScriptPage() {
 
   // --- TTS 핵심 로직 ---
   const speakLine = (index: number) => {
-    // 1. 즉시 모든 음성 중단 (이전 onend가 실행되지 않도록 함)
+    // 이전 타이머 및 음성 정리
+    if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
     window.speechSynthesis.cancel();
 
     if (index < 0 || index >= script.length) {
@@ -93,11 +92,14 @@ export default function PlayScriptPage() {
     }
 
     const line = script[index];
-    activeIndexRef.current = index; // 현재 말하기 시작한 인덱스 기록
+    activeIndexRef.current = index;
 
-    // 2. Utterance 객체 생성 및 설정
-    const utterance = new SpeechSynthesisUtterance(line.text);
-    utteranceRef.current = utterance; // GC 방지
+    // ★ iOS 해결 1: 특수문자 제거하고 읽히기
+    // <햄릿> -> 햄릿 (특수문자가 있으면 iOS가 침묵으로 처리할 때가 있음)
+    const cleanText = line.text.replace(/[<>{}[\]]/g, "");
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utteranceRef.current = utterance;
 
     const isMyTurn = line.character === myRole;
     const bestVoice = getBestVoice();
@@ -110,25 +112,41 @@ export default function PlayScriptPage() {
     };
     utterance.pitch = voiceSettings.pitch;
 
+    // 속도 계산
+    let finalRate = voiceSettings.rate * globalRate;
     if (isMyTurn) {
-      utterance.volume = 0; // 내 차례엔 무음
-      utterance.rate = voiceSettings.rate * globalRate * 0.5; // 연습 시간 확보 (속도 절반)
+      utterance.volume = 0;
+      finalRate = finalRate * 0.5;
     } else {
       utterance.volume = 1;
-      utterance.rate = voiceSettings.rate * globalRate;
     }
+    utterance.rate = finalRate;
 
-    // 3. 종료 이벤트 핸들러
+    // ★ iOS 해결 2: 강제 넘기기 안전장치 (Safety Timer)
+    // 대사 길이(글자수)를 바탕으로 예상 시간을 계산하고, 그 시간 + 1.5초가 지나도 안 끝나면 강제 이동
+    // 글자당 약 200ms 계산 (넉넉하게)
+    const estimatedDuration = (cleanText.length * 200) / finalRate + 1500;
+
+    safetyTimerRef.current = setTimeout(() => {
+      if (isPlaying && index === activeIndexRef.current) {
+        console.log("iOS 멈춤 감지: 강제로 다음 대사로 이동합니다.");
+        setCurrentIndex((prev) => prev + 1);
+      }
+    }, estimatedDuration);
+
     utterance.onend = () => {
-      // 중요: 종료된 시점에 activeIndex가 여전히 이 대사의 인덱스여야만 다음으로 넘어감
+      // 정상적으로 끝났으면 타이머 해제
+      if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
+
       if (isPlaying && index === activeIndexRef.current) {
         setCurrentIndex(index + 1);
       }
     };
 
     utterance.onerror = (e) => {
+      if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
+
       if (e.error !== "interrupted") {
-        // 사용자가 끊은게 아닐 때만 다음으로 (에러 복구)
         console.error("TTS Error:", e);
         if (isPlaying && index === activeIndexRef.current) {
           setCurrentIndex(index + 1);
@@ -136,10 +154,8 @@ export default function PlayScriptPage() {
       }
     };
 
-    // 4. 재생
     window.speechSynthesis.speak(utterance);
 
-    // 모바일 크롬 버그 방지: pause 상태면 강제 resume
     if (window.speechSynthesis.paused) {
       window.speechSynthesis.resume();
     }
@@ -153,7 +169,6 @@ export default function PlayScriptPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, isPlaying]);
 
-  // 스크롤 이동
   useEffect(() => {
     if (currentLineRef.current) {
       currentLineRef.current.scrollIntoView({
@@ -164,7 +179,6 @@ export default function PlayScriptPage() {
   }, [currentIndex]);
 
   const handleLineClick = (index: number) => {
-    // 클릭하면 강제로 인덱스 맞추고 재생 시작
     activeIndexRef.current = index;
     setCurrentIndex(index);
     setIsPlaying(true);
@@ -179,6 +193,7 @@ export default function PlayScriptPage() {
     if (isPlaying) {
       setIsPlaying(false);
       window.speechSynthesis.cancel();
+      if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
     } else {
       const nextIdx = currentIndex === -1 ? 0 : currentIndex;
       setCurrentIndex(nextIdx);
