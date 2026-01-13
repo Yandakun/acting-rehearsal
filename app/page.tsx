@@ -12,12 +12,13 @@ export default function PlayScriptPage() {
   const [voiceList, setVoiceList] = useState<SpeechSynthesisVoice[]>([]);
 
   const currentLineRef = useRef<HTMLDivElement>(null);
-  const speakingRef = useRef<boolean>(false);
 
-  // ★ 중요: 말하는 객체가 메모리에서 삭제되지 않도록 잡아두는 Ref (끊김 방지용)
+  // ★ 중요: 현재 말하고 있는 인덱스 추적 (인덱스 점프 방지용)
+  const activeIndexRef = useRef<number>(-1);
+  // ★ 중요: 가비지 컬렉션 방지용 (오디오 객체 보호)
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  // 캐릭터 목록
+  // 캐릭터 목록 추출
   const characters = Array.from(
     new Set(script.map((line) => line.character))
   ).filter((c) => c !== "지시문" && c !== "시스템");
@@ -31,138 +32,128 @@ export default function PlayScriptPage() {
     []
   );
 
-  // ★ 기능 추가: 배역에 따라 챕터 필터링 ★
+  // 배역별 챕터 필터링
   const filteredChapters = useMemo(() => {
-    if (!myRole) return allChapters; // 배역 선택 안 하면 전체 노출
-
+    if (!myRole) return allChapters;
     return allChapters.filter((chapter, i) => {
-      // 현재 챕터 시작 인덱스
       const startIndex = chapter.index;
-      // 다음 챕터 시작 인덱스 (없으면 스크립트 끝까지)
       const endIndex = allChapters[i + 1]
         ? allChapters[i + 1].index
         : script.length;
-
-      // 이 챕터 구간 내에 내 배역(myRole)의 대사가 하나라도 있는지 확인
       const linesInChapter = script.slice(startIndex, endIndex);
       return linesInChapter.some((line) => line.character === myRole);
     });
   }, [myRole, allChapters]);
 
-  // 현재 챕터 찾기 (UI 표시용)
   const getCurrentChapterIndex = () => {
     if (currentIndex === -1) return -1;
-    // 현재 필터링된 챕터 목록 중에서 찾음
     const currentChapter = [...filteredChapters]
       .reverse()
       .find((ch) => ch.index <= currentIndex);
     return currentChapter ? currentChapter.index : -1;
   };
 
-  // --- 1. 목소리 로딩 ---
+  // 목소리 로딩
   useEffect(() => {
     const loadVoices = () => {
       const voices = window.speechSynthesis.getVoices();
-      if (voices.length > 0) {
-        setVoiceList(voices);
-      }
+      if (voices.length > 0) setVoiceList(voices);
     };
     loadVoices();
-
-    // 크롬은 비동기로 로드되므로 이벤트 리스너 필수
     if (
       typeof window !== "undefined" &&
       window.speechSynthesis.onvoiceschanged !== undefined
     ) {
       window.speechSynthesis.onvoiceschanged = loadVoices;
     }
+    // 페이지 나갈 때 종료
+    return () => window.speechSynthesis.cancel();
   }, []);
 
   const getBestVoice = () => {
     const korVoices = voiceList.filter(
       (v) => v.lang.includes("ko") || v.lang.includes("KR")
     );
-    const googleVoice = korVoices.find((v) => v.name.includes("Google"));
-    const msVoice = korVoices.find(
-      (v) => v.name.includes("Microsoft") && v.name.includes("Online")
+    return (
+      korVoices.find((v) => v.name.includes("Google")) ||
+      korVoices.find((v) => v.name.includes("Microsoft")) ||
+      korVoices[0] ||
+      null
     );
-    return googleVoice || msVoice || korVoices[0] || null;
   };
 
-  // --- TTS 로직 (버그 수정됨) ---
+  // --- TTS 핵심 로직 ---
   const speakLine = (index: number) => {
+    // 1. 즉시 모든 음성 중단 (이전 onend가 실행되지 않도록 함)
+    window.speechSynthesis.cancel();
+
     if (index < 0 || index >= script.length) {
       setIsPlaying(false);
       return;
     }
 
     const line = script[index];
+    activeIndexRef.current = index; // 현재 말하기 시작한 인덱스 기록
 
-    // 기존 음성 취소
-    window.speechSynthesis.cancel();
-
-    // 내 차례인지 확인
-    const isMyTurn = line.character === myRole;
-
+    // 2. Utterance 객체 생성 및 설정
     const utterance = new SpeechSynthesisUtterance(line.text);
+    utteranceRef.current = utterance; // GC 방지
 
-    // ★ 버그 수정 핵심: Ref에 할당하여 가비지 컬렉션 방지
-    utteranceRef.current = utterance;
-
+    const isMyTurn = line.character === myRole;
     const bestVoice = getBestVoice();
-    if (bestVoice) {
-      utterance.voice = bestVoice;
-    }
-
+    if (bestVoice) utterance.voice = bestVoice;
     utterance.lang = "ko-KR";
+
     const voiceSettings = characterVoices[line.character] || {
       pitch: 1.0,
       rate: 1.0,
     };
     utterance.pitch = voiceSettings.pitch;
 
-    // 속도/볼륨 설정
     if (isMyTurn) {
-      utterance.volume = 0; // 소리 끔
-      // 내 대사 연습 시간 확보 (속도 0.5배)
-      utterance.rate = voiceSettings.rate * globalRate * 0.5;
+      utterance.volume = 0; // 내 차례엔 무음
+      utterance.rate = voiceSettings.rate * globalRate * 0.5; // 연습 시간 확보 (속도 절반)
     } else {
       utterance.volume = 1;
       utterance.rate = voiceSettings.rate * globalRate;
     }
 
-    // 종료 이벤트
+    // 3. 종료 이벤트 핸들러
     utterance.onend = () => {
-      speakingRef.current = false;
-      if (isPlaying) {
-        setCurrentIndex((prev) => prev + 1);
+      // 중요: 종료된 시점에 activeIndex가 여전히 이 대사의 인덱스여야만 다음으로 넘어감
+      if (isPlaying && index === activeIndexRef.current) {
+        setCurrentIndex(index + 1);
       }
     };
 
-    // 에러 방지용 (가끔 브라우저가 멈출 때 대비)
     utterance.onerror = (e) => {
-      console.error("TTS Error:", e);
-      speakingRef.current = false;
-      // 에러 나도 멈추지 말고 다음으로 이동 시도
-      if (isPlaying) {
-        setTimeout(() => setCurrentIndex((prev) => prev + 1), 500);
+      if (e.error !== "interrupted") {
+        // 사용자가 끊은게 아닐 때만 다음으로 (에러 복구)
+        console.error("TTS Error:", e);
+        if (isPlaying && index === activeIndexRef.current) {
+          setCurrentIndex(index + 1);
+        }
       }
     };
 
-    speakingRef.current = true;
+    // 4. 재생
     window.speechSynthesis.speak(utterance);
+
+    // 모바일 크롬 버그 방지: pause 상태면 강제 resume
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
   };
 
-  // --- Effects ---
+  // --- 재생/정지 감시 ---
   useEffect(() => {
-    if (isPlaying && currentIndex >= 0 && currentIndex < script.length) {
+    if (isPlaying && currentIndex >= 0) {
       speakLine(currentIndex);
-    } else if (!isPlaying) {
-      window.speechSynthesis.cancel();
-      speakingRef.current = false;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, isPlaying]);
 
+  // 스크롤 이동
   useEffect(() => {
     if (currentLineRef.current) {
       currentLineRef.current.scrollIntoView({
@@ -172,24 +163,16 @@ export default function PlayScriptPage() {
     }
   }, [currentIndex]);
 
-  // --- 핸들러 ---
   const handleLineClick = (index: number) => {
+    // 클릭하면 강제로 인덱스 맞추고 재생 시작
+    activeIndexRef.current = index;
     setCurrentIndex(index);
     setIsPlaying(true);
   };
 
   const handleChapterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newIndex = Number(e.target.value);
-    if (newIndex !== -1) {
-      setCurrentIndex(newIndex);
-      setIsPlaying(true);
-    }
-  };
-
-  const handleRoleChange = (role: string) => {
-    setMyRole(role);
-    // 배역을 바꿀 때, 현재 위치가 그 배역이 나오는 구간이 아니면 혼란스러울 수 있으나
-    // 일단 현재 위치는 유지하는 것이 일반적인 UX입니다.
+    if (newIndex !== -1) handleLineClick(newIndex);
   };
 
   const togglePlay = () => {
@@ -197,13 +180,9 @@ export default function PlayScriptPage() {
       setIsPlaying(false);
       window.speechSynthesis.cancel();
     } else {
+      const nextIdx = currentIndex === -1 ? 0 : currentIndex;
+      setCurrentIndex(nextIdx);
       setIsPlaying(true);
-      if (currentIndex === -1 || currentIndex >= script.length) {
-        setCurrentIndex(0);
-      } else {
-        // 이미 진행 중이었다면 현재 인덱스 다시 실행
-        speakLine(currentIndex);
-      }
     }
   };
 
@@ -212,7 +191,6 @@ export default function PlayScriptPage() {
       {/* 상단 컨트롤 패널 */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm px-3 py-3 space-y-3">
         <div className="max-w-2xl mx-auto space-y-3">
-          {/* 1열: 타이틀 & 속도 조절 */}
           <div className="flex justify-between items-center">
             <h1 className="text-lg font-bold text-gray-800">🎭 리허설 모드</h1>
             <div className="flex items-center bg-gray-100 rounded-lg p-1 gap-1">
@@ -223,7 +201,7 @@ export default function PlayScriptPage() {
                   className={`text-xs font-bold px-2 py-1 rounded transition-all ${
                     globalRate === rate
                       ? "bg-white text-blue-600 shadow-sm border border-gray-200"
-                      : "text-gray-400 hover:text-gray-600"
+                      : "text-gray-400"
                   }`}
                 >
                   x{rate}
@@ -232,15 +210,14 @@ export default function PlayScriptPage() {
             </div>
           </div>
 
-          {/* 2열: 챕터 선택 드롭다운 (필터링 적용됨) */}
           <div className="w-full">
             <select
               value={getCurrentChapterIndex()}
               onChange={handleChapterChange}
-              className="w-full p-2.5 text-sm font-bold bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              className="w-full p-2.5 text-sm font-bold bg-gray-50 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="-1">
-                🎬 챕터 선택 {myRole ? `(${myRole} 등장 씬만)` : "(전체)"}
+                🎬 챕터 선택 {myRole ? `(${myRole} 씬만)` : "(전체)"}
               </option>
               {filteredChapters.map((ch) => (
                 <option key={ch.index} value={ch.index}>
@@ -250,16 +227,15 @@ export default function PlayScriptPage() {
             </select>
           </div>
 
-          {/* 3열: 내 배역 선택 */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
             <span className="text-xs font-bold text-gray-400 whitespace-nowrap">
               내 역할(Mute):
             </span>
             <button
-              onClick={() => handleRoleChange("")}
+              onClick={() => setMyRole("")}
               className={`whitespace-nowrap px-3 py-1 text-xs rounded-full border transition-all ${
                 myRole === ""
-                  ? "bg-gray-800 text-white border-gray-800"
+                  ? "bg-gray-800 text-white"
                   : "bg-white text-gray-500 border-gray-200"
               }`}
             >
@@ -268,10 +244,10 @@ export default function PlayScriptPage() {
             {characters.map((char) => (
               <button
                 key={char}
-                onClick={() => handleRoleChange(char)}
+                onClick={() => setMyRole(char)}
                 className={`whitespace-nowrap px-3 py-1 text-xs rounded-full border transition-all ${
                   myRole === char
-                    ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                    ? "bg-blue-600 text-white"
                     : "bg-white text-gray-500 border-gray-200"
                 }`}
               >
@@ -288,7 +264,6 @@ export default function PlayScriptPage() {
           const isCurrent = index === currentIndex;
           const isMyPart = line.character === myRole;
 
-          // 챕터 구분선
           if (line.type === "header") {
             return (
               <div
@@ -312,16 +287,15 @@ export default function PlayScriptPage() {
             );
           }
 
-          // 일반 대사
           return (
             <div
               key={index}
               ref={isCurrent ? currentLineRef : null}
               onClick={() => handleLineClick(index)}
-              className={`p-3 rounded-lg cursor-pointer transition-all duration-200 border-l-4 relative group ${
+              className={`p-3 rounded-lg cursor-pointer transition-all border-l-4 relative ${
                 isCurrent
                   ? "bg-yellow-50 border-yellow-400 shadow-sm"
-                  : "bg-white border-transparent border-l-gray-200"
+                  : "bg-white border-l-gray-200 border-transparent hover:bg-gray-50"
               }`}
             >
               <div className="flex items-center gap-2 mb-1">
