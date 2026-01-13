@@ -24,7 +24,7 @@ export const script: ScriptLine[] = [
   { character: "시스템", text: "1장. 오프닝", type: "header" },
   {
     character: "유정",
-    text: "여러분 안녕하세요. <연출 살인사건> 공연에 오신 것을 환영합니다! 저는 이번 공연 <연출 살인사건>의 작가인 백유정입니다.",
+    text: "여러분 안녕하세요. <연출 살인사건> 공연에 오신 것을 환영합니다! 저는 이번 공연 연출 살인사건의 작가인 백유정입니다.",
     type: "dialogue",
   },
   {
@@ -50,7 +50,7 @@ export const script: ScriptLine[] = [
   },
   {
     character: "유정",
-    text: "제가 한 번 장면 안으로 들어가보겠습니다. 그럼 <연출 살인사건> 본격적으로 시작해 볼까요?",
+    text: "제가 한 번 장면 안으로 들어가보겠습니다. 그럼 연출 살인사건 본격적으로 시작해 볼까요?",
     type: "dialogue",
   },
   {
@@ -119,7 +119,7 @@ export const script: ScriptLine[] = [
   },
   {
     character: "유정",
-    text: "그럼 이제 본격적으로 <연출 살인사건> 시작해보겠습니다.",
+    text: "그럼 이제 본격적으로 연출 살인사건 시작해보겠습니다.",
     type: "dialogue",
   },
   {
@@ -215,7 +215,7 @@ export const script: ScriptLine[] = [
   },
   {
     character: "명근",
-    text: "아니 뭐, 좀 갑작스럽기는 하지만…(잠시 생각하다가) 배우가 남자 하나에 여자 하나이니까 <극적인 하룻밤>이 괜찮을 것 같네요.",
+    text: "아니 뭐, 좀 갑작스럽기는 하지만…(잠시 생각하다가) 배우가 남자 하나에 여자 하나이니까 극적인 하룻밤이 괜찮을 것 같네요.",
     type: "dialogue",
   },
   { character: "유정", text: "안됩니다.", type: "dialogue" },
@@ -226,21 +226,21 @@ export const script: ScriptLine[] = [
     type: "dialogue",
   },
   { character: "명근", text: "그렇다면…", type: "dialogue" },
-  { character: "유정", text: "<햄릿>", type: "dialogue" },
+  { character: "유정", text: "햄릿", type: "dialogue" },
   { character: "명근", text: "네?", type: "dialogue" },
   {
     character: "유정",
-    text: "그냥 셰익스피어의 <햄릿>하죠. 어차피 극중극인데 뭐가 중요해요. 저작권도 안전하고 관객들 모두 알 만한 작품으로 합시다.",
+    text: "그냥 셰익스피어의 햄릿하죠. 어차피 극중극인데 뭐가 중요해요. 저작권도 안전하고 관객들 모두 알 만한 작품으로 합시다.",
     type: "dialogue",
   },
   {
     character: "윤진",
-    text: "그런데 <햄릿>을 둘이서 할 수 있나요?",
+    text: "그런데 햄릿을 둘이서 할 수 있나요?",
     type: "dialogue",
   },
   {
     character: "유정",
-    text: "저기, 400년 동안 <햄릿>이 얼마나 많이 각색되어서 공연되었는데 배우 두 명이서 올린 적 없을까봐? 아무리 신인 배우라지만 이 정도는 알고 있어야지.",
+    text: "저기, 400년 동안 햄릿이 얼마나 많이 각색되어서 공연되었는데 배우 두 명이서 올린 적 없을까봐? 아무리 신인 배우라지만 이 정도는 알고 있어야지.",
     type: "dialogue",
   },
   {
@@ -352,7 +352,7 @@ export const script: ScriptLine[] = [
   },
   {
     character: "명근",
-    text: "(전기에 감전된 듯 몸을 부르르 떨다가 돌변하여 대본을 집어 던지며) 야 이 미친 새끼야! 네가 그러고도 배우야! 어? 내가 살면서 너 같이 <햄릿> 하는 새끼는 처음 본다.",
+    text: "(전기에 감전된 듯 몸을 부르르 떨다가 돌변하여 대본을 집어 던지며) 야 이 미친 새끼야! 네가 그러고도 배우야! 어? 내가 살면서 너 같이 햄릿 하는 새끼는 처음 본다.",
     type: "dialogue",
   },
   {
@@ -548,7 +548,7 @@ export const script: ScriptLine[] = [
   },
   {
     character: "유정",
-    text: "내가 다른 극단 알아봐줄까? 저 연출 별로야. 저렇게 배우들에게 폭언을 퍼붓고 <햄릿>을 2인극으로 올릴 생각이나 하고.",
+    text: "내가 다른 극단 알아봐줄까? 저 연출 별로야. 저렇게 배우들에게 폭언을 퍼붓고 햄릿을 2인극으로 올릴 생각이나 하고.",
     type: "dialogue",
   },
   {
@@ -641,7 +641,7 @@ export const script: ScriptLine[] = [
   { character: "찬수", text: "죄송합니다.", type: "dialogue" },
   {
     character: "명근",
-    text: "나 이번에 연극제 초청 받았는데 같이 할래? 이번에는 <햄릿> 같은 고전 아니고 현대극이야. 너도 재밌어 할걸? 내가 또 편한 사람들과 같이 일해야 신이 나는 거 너도 알잖아.",
+    text: "나 이번에 연극제 초청 받았는데 같이 할래? 이번에는 햄릿 같은 고전 아니고 현대극이야. 너도 재밌어 할걸? 내가 또 편한 사람들과 같이 일해야 신이 나는 거 너도 알잖아.",
     type: "dialogue",
   },
   { character: "찬수", text: "네.", type: "dialogue" },
@@ -1323,7 +1323,7 @@ export const script: ScriptLine[] = [
   { character: "명근", text: "죽으라고요? 갑자기 왜요?", type: "dialogue" },
   {
     character: "유정",
-    text: "왜긴. 이 공연 제목이 <연출 살인사건>인데 연출이 안 죽으면 어떡해.",
+    text: "왜긴. 이 공연 제목이 연출 살인사건인데 연출이 안 죽으면 어떡해.",
     type: "dialogue",
   },
   {
@@ -1403,7 +1403,7 @@ export const script: ScriptLine[] = [
   { character: "지시문", text: "유정이 일어나 땀을 닦는다.", type: "action" },
   {
     character: "유정",
-    text: "휴, 겨우 죽었네. (관객에게) 자, 이렇게 쓰레기 연출 최명근은 죽었습니다. 찬수, 윤진, 지소. 이 중에서 <연출 살인사건>의 범인은 과연 누구일까요? 관객 여러분들께서 꼭 범인을 잡아 주시기 바랍니다! 돌아가시는 길 편안하고 안전하게 가시기 바랍니다. 이상 <연출 살인사건>이었습니다. 감사합니다!",
+    text: "휴, 겨우 죽었네. (관객에게) 자, 이렇게 쓰레기 연출 최명근은 죽었습니다. 찬수, 윤진, 지소. 이 중에서 연출 살인사건의 범인은 과연 누구일까요? 관객 여러분들께서 꼭 범인을 잡아 주시기 바랍니다! 돌아가시는 길 편안하고 안전하게 가시기 바랍니다. 이상 연출 살인사건이었습니다. 감사합니다!",
     type: "dialogue",
   },
   {
@@ -1452,7 +1452,7 @@ export const script: ScriptLine[] = [
   },
   {
     character: "유정",
-    text: "무슨 소리야 그게. 당연하지! <연출 살인사건> 작가 백유정!",
+    text: "무슨 소리야 그게. 당연하지! 연출 살인사건 작가 백유정!",
     type: "dialogue",
   },
   {
@@ -1463,7 +1463,7 @@ export const script: ScriptLine[] = [
   { character: "유정", text: "무가?", type: "dialogue" },
   {
     character: "윤진",
-    text: "작가님이 <연출 살인사건>을 진짜 쓰셨다면 아까 “이상 <연출 살인사건>이었습니다. 감사합니다!”에서 끝났어야 하는 거 아니에요? 그런데 그 이후로 저희가 한 이야기, 그리고 지금 제가 내뱉고 있는 대사는 뭐냐고요.",
+    text: "작가님이 연출 살인사건을 진짜 쓰셨다면 아까 “이상 연출 살인사건이었습니다. 감사합니다!”에서 끝났어야 하는 거 아니에요? 그런데 그 이후로 저희가 한 이야기, 그리고 지금 제가 내뱉고 있는 대사는 뭐냐고요.",
     type: "dialogue",
   },
   { character: "유정", text: "그건…", type: "dialogue" },
